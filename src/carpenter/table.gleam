@@ -1,9 +1,11 @@
+//// [Erlang ETS Documentation](https://www.erlang.org/doc/apps/stdlib/ets.html)
+
+import carpenter/internal/ets_bindings
+import carpenter/internal/props
+import gleam/dynamic/decode
 import gleam/erlang/atom
 import gleam/erlang/process
-import gleam/dynamic
-import gleam/list
 import gleam/option.{type Option, None, Some}
-import carpenter/internal/ets_bindings
 
 pub type TableBuilder(k, v) {
   TableBuilder(
@@ -28,7 +30,7 @@ pub type WriteConcurrency {
   AutoWriteConcurrency
 }
 
-/// Begin building a new table with the given name. Ensure your table names are unique, 
+/// Begin building a new table with the given name. Ensure your table names are unique,
 /// otherwise you will encounter a `badarg` failure at runtime when attempting to build it.
 pub fn build(name: String) -> TableBuilder(k, v) {
   TableBuilder(
@@ -69,7 +71,7 @@ pub fn read_concurrency(
 
 /// Whether or not the table uses decentralized_counters.
 /// Acceptable values are `True` or `False`.
-/// 
+///
 /// You should probably choose `True` unless you are going to be polling
 /// the table for its size and memory usage frequently.
 pub fn decentralized_counters(
@@ -87,73 +89,43 @@ pub fn compression(
   TableBuilder(..builder, compressed: compressed)
 }
 
-fn privacy_prop(prop: Privacy) -> dynamic.Dynamic {
-  case prop {
-    Private -> "private"
-    Protected -> "protected"
-    Public -> "public"
-  }
-  |> atom.create_from_string
-  |> dynamic.from
+fn privacy_prop(prop: Privacy) -> decode.Dynamic {
+  props.atom({
+    case prop {
+      Private -> "private"
+      Protected -> "protected"
+      Public -> "public"
+    }
+  })
 }
 
-fn write_concurrency_prop(prop: WriteConcurrency) -> dynamic.Dynamic {
-  case prop {
-    WriteConcurrency -> "true"
-    NoWriteConcurrency -> "false"
-    AutoWriteConcurrency -> "auto"
-  }
-  |> atom.create_from_string
-  |> fn(x) { #(atom.create_from_string("write_concurrency"), x) }
-  |> dynamic.from
+fn write_concurrency_prop(prop: WriteConcurrency) -> decode.Dynamic {
+  props.pair("write_concurrency", {
+    props.atom(case prop {
+      WriteConcurrency -> "true"
+      NoWriteConcurrency -> "false"
+      AutoWriteConcurrency -> "auto"
+    })
+  })
+}
+
+fn decentralized_counters_prop(prop: Bool) {
+  props.pair("decentralized_counters", prop)
 }
 
 fn build_table(
   builder: TableBuilder(k, v),
   table_type: String,
 ) -> Result(atom.Atom, Nil) {
-  let name = atom.create_from_string(builder.name)
-
-  let props =
-    [
-      atom.create_from_string(table_type),
-      atom.create_from_string("named_table"),
-    ]
-    |> list.map(dynamic.from)
-
-  let props = case builder.privacy {
-    Some(x) -> [privacy_prop(x), ..props]
-    _ -> props
-  }
-
-  let props = case builder.write_concurrency {
-    Some(x) -> [write_concurrency_prop(x), ..props]
-    _ -> props
-  }
-
-  let props = case builder.read_concurrency {
-    Some(x) -> [
-      #(atom.create_from_string("read_concurrency"), x)
-        |> dynamic.from,
-      ..props
-    ]
-    _ -> props
-  }
-
-  let props = case builder.compressed {
-    True -> [
-      atom.create_from_string("compressed")
-        |> dynamic.from,
-      ..props
-    ]
-    False -> props
-  }
-
-  ets_bindings.new_table(
-    name,
-    props
-      |> list.map(dynamic.from),
-  )
+  let name = atom.create(builder.name)
+  ets_bindings.new_table(name, {
+    [props.atom(table_type), props.atom("named_table")]
+    |> props.append(builder.privacy, privacy_prop)
+    |> props.append(builder.write_concurrency, write_concurrency_prop)
+    |> props.append(builder.read_concurrency, props.pair("read_concurrency", _))
+    |> props.append(builder.decentralized_counters, decentralized_counters_prop)
+    |> props.append_if(builder.compressed, fn() { props.atom("compressed") })
+  })
 }
 
 /// Specify table as a `set`
@@ -183,10 +155,11 @@ pub type Set(k, v) {
 /// Insert a list of objects into the set
 pub fn insert(set: Set(k, v), objects: List(#(k, v))) -> Nil {
   ets_bindings.insert(set.table.name, objects)
+  Nil
 }
 
 /// Insert a list of objects without overwriting any existing keys.
-/// 
+///
 /// This will not insert ANY object unless ALL keys do not exist.
 pub fn insert_new(set: Set(k, v), objects: List(#(k, v))) -> Bool {
   ets_bindings.insert_new(set.table.name, objects)
@@ -200,26 +173,31 @@ pub fn lookup(set: Set(k, v), key: k) -> List(#(k, v)) {
 /// Delete all objects with key `key` from the table.
 pub fn delete(set: Set(k, v), key: k) -> Nil {
   ets_bindings.delete_key(set.table.name, key)
+  Nil
 }
 
 /// Delete all objects belonging to a table
 pub fn delete_all(set: Set(k, v)) -> Nil {
   ets_bindings.delete_all_objects(set.table.name)
+  Nil
 }
 
 /// Delete an exact object from the table
 pub fn delete_object(set: Set(k, v), object: #(k, v)) -> Nil {
   ets_bindings.delete_object(set.table.name, object)
+  Nil
 }
 
 /// Deletes the entire table.
-pub fn drop(set: Set(k, v)) {
+pub fn drop(set: Set(k, v)) -> Nil {
   ets_bindings.drop(set.table.name)
+  Nil
 }
 
 /// Give the table to another process.
 pub fn give_away(set: Set(k, v), pid: process.Pid, gift_data: any) -> Nil {
   ets_bindings.give_away(set.table.name, pid, gift_data)
+  Nil
 }
 
 /// Returns a boolean based on the existence of a key within the table
@@ -229,7 +207,7 @@ pub fn contains(set: Set(k, v), key: k) -> Bool {
 
 /// Get a reference to an existing table
 pub fn ref(name: String) -> Result(Set(k, v), Nil) {
-  case atom.from_string(name) {
+  case atom.get(name) {
     Ok(t) -> Ok(Set(Table(t)))
     Error(_) -> Error(Nil)
   }
