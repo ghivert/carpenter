@@ -1,163 +1,77 @@
-import gleeunit
-import gleeunit/should
 import carpenter/table
+import gleam/result
+import gleeunit
 
 pub fn main() {
   gleeunit.main()
 }
 
 pub fn set_insert_test() {
-  let t =
-    table.build("set_insert_test")
-    |> table.set
-    |> should.be_ok
-
-  t
-  |> table.insert([#("hello", "world")])
-  t
-  |> table.lookup("hello")
-  |> should.equal([#("hello", "world")])
+  let assert Ok(table) = table.build("set_insert_test") |> table.set
+  assert table.insert(table, [#("hello", "world")]) == Nil
+  assert table.lookup(table, "hello") == [#("hello", "world")]
 }
 
 pub fn set_insert_new_test() {
-  let t =
-    table.build("set_insert_new_test")
-    |> table.set
-    |> should.be_ok
-
-  t
-  |> table.insert([#(1, 2), #(2, 3)])
-  t
-  |> table.insert_new([#(3, 4), #(1, 3)])
-  |> should.be_false
-  t
-  |> table.insert_new([#(3, 4), #(4, 5)])
-  |> should.be_true
+  let assert Ok(table) = table.build("set_insert_new_test") |> table.set
+  assert table.insert(table, [#(1, 2), #(2, 3)]) == Nil
+  assert !table.insert_new(table, [#(3, 4), #(1, 3)])
+  assert table.insert_new(table, [#(3, 4), #(4, 5)])
 }
 
 pub fn set_delete_test() {
-  let t =
-    table.build("delete_test")
-    |> table.set
-    |> should.be_ok
-
-  t
-  |> table.insert([#(1, 2)])
-  t
-  |> table.delete(1)
-  t
-  |> table.lookup(1)
-  |> should.equal([])
+  let assert Ok(table) = table.build("delete_test") |> table.set
+  assert table.insert(table, [#(1, 2)]) == Nil
+  assert table.delete(table, 1) == Nil
+  assert table.lookup(table, 1) == []
 }
 
 pub fn set_delete_all_test() {
-  let t =
-    table.build("delete_all_test")
-    |> table.set
-    |> should.be_ok
-
-  t
-  |> table.insert([#(1, 2), #(2, 3)])
-  t
-  |> table.delete_all
-
-  t
-  |> table.lookup(1)
-  |> should.equal([])
-
-  t
-  |> table.lookup(2)
-  |> should.equal([])
+  let assert Ok(table) = table.build("delete_all_test") |> table.set
+  assert table.insert(table, [#(1, 2), #(2, 3)]) == Nil
+  assert table.delete_all(table) == Nil
+  assert table.lookup(table, 1) == []
+  assert table.lookup(table, 2) == []
 }
 
 pub fn set_delete_object_test() {
-  let t =
-    table.build("delete_obj_test")
-    |> table.set
-    |> should.be_ok
-
-  t
-  |> table.insert([#(1, 2)])
-  t
-  |> table.delete_object(#(1, 2))
-  t
-  |> table.contains(1)
-  |> should.be_false
+  let assert Ok(table) = table.build("delete_obj_test") |> table.set
+  assert table.insert(table, [#(1, 2)]) == Nil
+  assert table.delete_object(table, #(1, 2)) == Nil
+  assert !table.contains(table, 1)
 }
 
 pub fn ordered_set_test() {
-  let t =
-    table.build("ordered_set_test")
-    |> table.ordered_set
-    |> should.be_ok
-
-  t
-  |> table.insert([#(1, 2), #(2, 3)])
-  t
-  |> table.lookup(1)
-  |> should.equal([#(1, 2)])
+  let assert Ok(table) = table.build("ordered_set_test") |> table.ordered_set
+  assert table.insert(table, [#(1, 2), #(2, 3)]) == Nil
+  assert table.lookup(table, 1) == [#(1, 2)]
 }
 
 pub fn drop_test() {
-  let t =
-    table.build("drop_test")
-    |> table.set
-    |> should.be_ok
-
-  table.build("drop_test")
-  |> table.set
-  |> should.be_error
-
-  t
-  |> table.drop
-
-  table.build("drop_test")
-  |> table.set
-  |> should.be_ok
+  let assert Ok(table) = table.build("drop_test") |> table.set
+  assert table.build("drop_test") |> table.set() == Error(Nil)
+  assert table.drop(table) == Nil
+  assert table.build("drop_test")
+    |> table.set()
+    |> result.is_ok
 }
 
 pub fn contains_test() {
-  let t =
-    table.build("contains_test")
-    |> table.set
-    |> should.be_ok
-
-  t
-  |> table.insert([#(1, 2)])
-
-  t
-  |> table.contains(1)
-  |> should.be_true
-  t
-  |> table.contains(2)
-  |> should.be_false
+  let assert Ok(table) = table.build("contains_test") |> table.set()
+  assert table.insert(table, [#(1, 2)]) == Nil
+  assert table.contains(table, 1)
+  assert !table.contains(table, 2)
 }
 
 pub fn ref_test() {
-  let t =
-    table.ref("contains_test")
-    |> should.be_ok
-
-  t
-  |> table.contains(1)
-  |> should.be_true
+  let assert Ok(table) = table.ref("contains_test")
+  assert table.contains(table, 1)
 }
 
 pub fn take_test() {
-  let t =
-    table.build("take_test")
-    |> table.set
-    |> should.be_ok
-
-  t
-  |> table.insert([#(1, 2)])
-  t
-  |> table.contains(1)
-  |> should.be_true
-  t
-  |> table.take(1)
-  |> should.equal([#(1, 2)])
-  t
-  |> table.contains(1)
-  |> should.be_false
+  let assert Ok(table) = table.build("take_test") |> table.set()
+  assert table.insert(table, [#(1, 2)]) == Nil
+  assert table.contains(table, 1)
+  assert table.take(table, 1) == [#(1, 2)]
+  assert !table.contains(table, 1)
 }
