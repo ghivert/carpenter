@@ -1,6 +1,6 @@
 -module(carpenter_ffi).
 
--export([new_table/2]).
+-export([new_table/2, coerce/1]).
 
 new_table(Name, Options) ->
   try
@@ -9,3 +9,6 @@ new_table(Name, Options) ->
     error:badarg ->
       {error, nil}
   end.
+
+coerce(A) ->
+  A.
